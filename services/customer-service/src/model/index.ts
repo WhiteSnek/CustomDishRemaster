@@ -1,5 +1,4 @@
 import mongoose, { Schema, Model } from "mongoose";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { AddressType, CustomerType } from "../types/index";
 
@@ -52,24 +51,9 @@ const customerSchema = new Schema<CustomerType>(
     address: {
       type: addressSchema,
     },
-    order: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Order",
-      },
-    ],
-    cart: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Cart",
-      },
-    ],
     password: {
       type: String,
       required: [true, "Password is required"],
-    },
-    refreshToken: {
-      type: String,
     },
   },
   {
@@ -91,37 +75,5 @@ customerSchema.methods.isPasswordCorrect = async function (
   return await bcrypt.compare(password, this.password);
 };
 
-// Method to Generate Access Token
-customerSchema.methods.generateAccessToken = function (): string {
-  return jwt.sign(
-    {
-      _id: this._id,
-      email: this.email,
-      Customername: this.Customername,
-      fullname: this.fullname,
-    },
-    process.env.ACCESS_TOKEN_SECRET as string,
-    {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRY as string,
-    }
-  );
-};
 
-// Method to Generate Refresh Token
-customerSchema.methods.generateRefreshToken = function (): string {
-  return jwt.sign(
-    {
-      _id: this._id,
-      email: this.email,
-      Customername: this.Customername,
-      fullname: this.fullname,
-    },
-    process.env.REFRESH_TOKEN_SECRET as string,
-    {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRY as string,
-    }
-  );
-};
-
-// Export the Customer Model
 export const Customer: Model<CustomerType> = mongoose.model<CustomerType>("Customer", customerSchema);

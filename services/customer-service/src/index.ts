@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express } from "express";
 import dotenv from "dotenv";
 import userRouter from "./routes";
 import cookieParser from "cookie-parser";
@@ -20,11 +20,7 @@ app.use(express.static("public"));
 
 app.use(cookieParser());
 
-app.get("/", (req: Request, res: Response) => {
-  res.send("Express + TypeScript Server");
-});
-
-app.use("/api/v1/users", userRouter);
+app.use(userRouter);
 
 connectDb()
   .then(() => {
