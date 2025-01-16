@@ -1,24 +1,48 @@
-import express, { Express } from "express";
-import connectDb from "./config";
+import amqp from "amqplib";
 
+const startTokenService = async () => {
+  const connection = await amqp.connect(process.env.RABBITMQ_URL || "amqp://localhost");
+  const channel = await connection.createChannel();
 
-const app: Express = express();
+  const requestQueue = "generate_tokens";
 
-app.use(
-  express.json({
-    limit: "16kb",
-  })
-);
+  await channel.assertQueue(requestQueue, { durable: true });
 
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(express.static("public"));
+  channel.consume(
+    requestQueue,
+    async (msg) => {
+      if (!msg) return;
 
-connectDb()
-  .then(() => {
-    app.listen(process.env.PORT || 3001, () => {
-      console.log(`Server running on port ${process.env.PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.log("MongoDb connection error: ", err);
-  });
+      const { userId, userType } = JSON.parse(msg.content.toString());
+
+      // Generate tokens
+      const accessToken = generateAccessToken(userId, userType);
+      const refreshToken = generateRefreshToken(userId, userType);
+
+      // Send the response
+      const response = { accessToken, refreshToken };
+      channel.sendToQueue(
+        msg.properties.replyTo,
+        Buffer.from(JSON.stringify(response)),
+        { correlationId: msg.properties.correlationId }
+      );
+
+      channel.ack(msg);
+    },
+    { noAck: false }
+  );
+
+  console.log("Token Service is running...");
+};
+
+const generateAccessToken = (userId: string, userType: string) => {
+  // Generate access token (e.g., using JWT)
+  return `access_token_${userId}_${userType}`;
+};
+
+const generateRefreshToken = (userId: string, userType: string) => {
+  // Generate refresh token (e.g., using JWT)
+  return `refresh_token_${userId}_${userType}`;
+};
+
+startTokenService();
