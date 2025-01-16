@@ -1,6 +1,7 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Model, Schema } from "mongoose";
+import { TokenType } from "../types";
 
-const refreshTokenSchema = new Schema({
+const refreshTokenSchema = new Schema<TokenType>({
     userId: {
         type: String,
         required: true
@@ -29,5 +30,5 @@ const refreshTokenSchema = new Schema({
     timestamps: true
 })
 
-export const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema)
+export const RefreshToken: Model<TokenType> = mongoose.model<TokenType>('RefreshToken', refreshTokenSchema)
 
