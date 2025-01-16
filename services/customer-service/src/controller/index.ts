@@ -1,30 +1,9 @@
 import { ApiResponse } from "../utils/ApiResponse";
 import { asyncHandler } from "../utils/AsyncHandler";
 import { Customer } from "../model";
-import { TokenResponse } from "../types/index";
 import { Request, Response } from "express";
 import { uploadToS3 } from "../utils/uploadOnS3";
-
-const generateAccessAndRefreshTokens = async (
-  userId: string
-): Promise<TokenResponse> => {
-  try {
-    const customer = await Customer.findById(userId);
-
-    if (!customer) {
-      throw new Error("Customer not found!");
-    }
-    const accessToken = customer.generateAccessToken();
-    const refreshToken = customer.generateRefreshToken();
-
-    customer.refreshToken = refreshToken;
-    await customer.save({ validateBeforeSave: false });
-
-    return { accessToken, refreshToken };
-  } catch (error) {
-    throw new Error("Something went wrong while generating tokens");
-  }
-};
+import { generateTokens } from "../queue";
 
 
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
@@ -102,16 +81,21 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Validate password
-  const isPasswordValid = await customer.isPasswordCorrect(password);
-  if (!isPasswordValid) {
-    return res
-      .status(401)
-      .json(new ApiResponse(401, {}, "Incorrect credentials"));
-  }
+  // const isPasswordValid = await customer.isPasswordCorrect(password);
+  // if (!isPasswordValid) {
+  //   return res
+  //     .status(401)
+  //     .json(new ApiResponse(401, {}, "Incorrect credentials"));
+  // }
+
+  const deviceInfo = req.headers['user-agent'] || 'unknown'; 
+  const ipAddress = req.ip || req.connection.remoteAddress || 'unknown'; 
 
   // Generate access and refresh tokens
-  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
-    customer._id.toString()
+  const { accessToken, refreshToken } = await generateTokens(
+    customer._id.toString(),
+    deviceInfo,
+    ipAddress
   );
 
   // Fetch the logged-in customer details without sensitive fields
