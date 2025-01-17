@@ -33,7 +33,7 @@ export const generateTokens = async (userId: string, deviceInfo: Object, ipAddre
             )
             setTimeout(()=>{
                 reject(new Error("Token generation timed out"))
-            }, 5000)
+            }, 9000)
         })
     
         channel.sendToQueue(requestQueue, Buffer.from(JSON.stringify(message)),{
@@ -46,7 +46,7 @@ export const generateTokens = async (userId: string, deviceInfo: Object, ipAddre
       await channel.close();
       await connection.close();
     
-      return response as { accessToken: string; refreshToken: string }
+      return response as { accessToken: string; refreshToken: string, newDeviceLogin: boolean }
     } catch (error: any) {
         throw new Error(error.message)
     }
