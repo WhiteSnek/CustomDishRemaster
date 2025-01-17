@@ -3,7 +3,8 @@ import { asyncHandler } from "../utils/AsyncHandler";
 import { Customer } from "../model";
 import { Request, Response } from "express";
 import { uploadToS3 } from "../utils/uploadOnS3";
-import { generateTokens } from "../queue";
+import { generateTokens } from "../queue/tokens";
+import { sendOtpRequest } from "../queue/otp";
 
 
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
@@ -167,6 +168,16 @@ const getCurrentCustomer = asyncHandler(async(req: Request, res: Response)=> {
   return res.status(200).json(new ApiResponse(200, req.customer, "Current customer fetched successfully"))
 })
 
+const sendOtp = asyncHandler(async(req: Request, res: Response)=> {
+  const { email } = req.body;
+  try {
+    await sendOtpRequest(email);
+    return res.status(200).json(new ApiResponse(200, {}, "OTP sent successfully"));
+  } catch (error) {
+    return res.status(500).json(new ApiResponse(500, {}, "Error sending OTP"));
+  }
+})
+
 const updateAccountDetails = asyncHandler(async(req: Request, res: Response)=>{
   const { email, mobileNumber } = req.body;
   if(!email || !mobileNumber) return res.status(400).json(new ApiResponse(400,{},"Atleast one of the fields is required!"))
@@ -273,4 +284,4 @@ const deleteAddress = asyncHandler(async(req: Request, res: Response)=>{
 })
 
 
-export { loginUser, registerUser, logoutUser, getCurrentCustomer, updateAccountDetails, updatePassword, deactivateAccount, deleteAccount, addAddress, deleteAddress };
+export { loginUser, registerUser, logoutUser, getCurrentCustomer, updateAccountDetails, updatePassword, deactivateAccount, deleteAccount, addAddress, deleteAddress, sendOtp };

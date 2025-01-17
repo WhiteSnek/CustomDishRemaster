@@ -1,4 +1,5 @@
 import amqp from 'amqplib'
+import { generateCorrelationId } from '../utils/CorrelationId';
 
 export const generateTokens = async (userId: string, deviceInfo: Object, ipAddress: string) => {
     try {
@@ -53,6 +54,3 @@ export const generateTokens = async (userId: string, deviceInfo: Object, ipAddre
 }
 
 
-const generateCorrelationId = () => {
-    return Math.random().toString(36).substring(7) + Date.now().toString();
-  }
