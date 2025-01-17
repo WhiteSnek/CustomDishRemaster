@@ -12,11 +12,14 @@ export interface CustomerType extends Document {
     fullname: string;
     displayImage: string;
     address?: AddressType;
+    mobileNumber: string;
     password: string;
+    status: string;
     isPasswordCorrect(password: string): Promise<boolean>;
   }
 
 export interface AddressType extends Document {
+    name: string;
     houseNo: string;
     street: string;
     district: string;

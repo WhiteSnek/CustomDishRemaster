@@ -3,6 +3,10 @@ import bcrypt from "bcrypt";
 import { AddressType, CustomerType } from "../types/index";
 
 const addressSchema = new Schema<AddressType>({
+    name: {
+      type: String,
+      required: true
+    },
     houseNo: {
         type: String,
         required: true,
@@ -48,13 +52,22 @@ const customerSchema = new Schema<CustomerType>(
       type: String, 
       required: true,
     },
-    address: {
+    address: [{
       type: addressSchema,
+    }],
+    mobileNumber: {
+      type: String,
+      required: true,
     },
     password: {
       type: String,
       required: [true, "Password is required"],
     },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    }
   },
   {
     timestamps: true,
