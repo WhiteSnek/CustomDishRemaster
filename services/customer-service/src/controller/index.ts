@@ -83,12 +83,12 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
   if(customer.status === "inactive") customer.status = 'active'
 
   // Validate password
-  // const isPasswordValid = await customer.isPasswordCorrect(password);
-  // if (!isPasswordValid) {
-  //   return res
-  //     .status(401)
-  //     .json(new ApiResponse(401, {}, "Incorrect credentials"));
-  // }
+  const isPasswordValid = await customer.isPasswordCorrect(password);
+  if (!isPasswordValid) {
+    return res
+      .status(401)
+      .json(new ApiResponse(401, {}, "Incorrect credentials"));
+  }
 
   const deviceInfo = req.headers['user-agent'] || 'unknown'; 
   const ipAddress = req.ip || req.connection.remoteAddress || 'unknown'; 
