@@ -4,7 +4,7 @@ import { Customer } from "../model";
 import { Request, Response } from "express";
 import { uploadToS3 } from "../utils/uploadOnS3";
 import { generateTokens } from "../queue/tokens";
-import { sendOtpRequest } from "../queue/otp";
+import { sendNewDeviceLoginMail, sendOtpRequest } from "../queue/messaging";
 
 
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
@@ -62,18 +62,18 @@ const registerUser = asyncHandler(async (req:Request, res:Response) => {
 
 
 const loginUser = asyncHandler(async (req: Request, res: Response) => {
-  const { email, username, password } = req.body;
+  const { email, mobileNumber, password } = req.body;
 
   // Check if username or email is provided
-  if (!username && !email) {
+  if (!mobileNumber && !email) {
     return res
       .status(400)
-      .json(new ApiResponse(400, {}, "Username or Email is required"));
+      .json(new ApiResponse(400, {}, "Mobile number or Email is required"));
   }
 
   // Find the customer
   const customer = await Customer.findOne({
-    $or: [{ username }, { email }],
+    $or: [{ mobileNumber }, { email }],
   });
 
   if (!customer) {
@@ -83,12 +83,12 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
   if(customer.status === "inactive") customer.status = 'active'
 
   // Validate password
-  const isPasswordValid = await customer.isPasswordCorrect(password);
-  if (!isPasswordValid) {
-    return res
-      .status(401)
-      .json(new ApiResponse(401, {}, "Incorrect credentials"));
-  }
+  // const isPasswordValid = await customer.isPasswordCorrect(password);
+  // if (!isPasswordValid) {
+  //   return res
+  //     .status(401)
+  //     .json(new ApiResponse(401, {}, "Incorrect credentials"));
+  // }
 
   const deviceInfo = req.headers['user-agent'] || 'unknown'; 
   const ipAddress = req.ip || req.connection.remoteAddress || 'unknown'; 
@@ -99,10 +99,15 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     deviceInfo,
     ipAddress
   );
-
+  console.log("new device login?: ",newDeviceLogin)
+  const name = customer.fullname
+  console.log(name)
   if(newDeviceLogin){
-    // TODO: send email to the user in case of new device login
-    console.log(`Logged in from new device: ${deviceInfo}`)
+    try {
+      await sendNewDeviceLoginMail(email, name, deviceInfo)
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   // Fetch the logged-in customer details without sensitive fields

@@ -14,10 +14,10 @@ const refreshTokenSchema = new Schema<TokenType>({
         type: String,
         required: true
     },
-    deviceInfo: {
+    deviceInfo: [{
         type: Object,
         required: true
-    },
+    }],
     ipAddress: {
         type: String,
         required: true

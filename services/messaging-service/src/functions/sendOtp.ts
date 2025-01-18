@@ -1,8 +1,8 @@
 import nodemailer from 'nodemailer';
 import { OTP } from '../models';
-import { Channel, Message } from 'amqplib';
+import { Message } from 'amqplib';
 
-const sendOtp = async (channel: Channel, msg: Message) => {
+const sendOtp = async (msg: Message) => {
     try {
         if (!process.env.NODEMAILER_HOST || !process.env.NODEMAILER_PORT) {
             throw new Error('NODEMAILER_HOST or NODEMAILER_PORT is not defined');

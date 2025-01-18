@@ -64,3 +64,28 @@ export const verifyOtpRequest = async (email: string, otp: number) => {
         throw new Error(error.message)
     }
 }
+
+export const sendNewDeviceLoginMail = async(email: string, name: string, deviceInfo: Object) => {
+    try {
+        console.log(name)
+        const connection = await amqp.connect(process.env.RABBITMQ_URL || "amqp://localhost");
+        const channel = await connection.createChannel();
+    
+        const requestQueue = 'send_new_device_mail';
+        await channel.assertQueue(requestQueue, { durable: true });
+    
+        // Send request to the messaging service to send OTP
+        const message = {
+            email,
+            name,
+            deviceInfo
+        }
+        channel.sendToQueue(requestQueue, Buffer.from(JSON.stringify(message)));
+    
+        console.log(`Mail sent to ${email}`);
+        await channel.close();
+        await connection.close();
+    } catch (error: any) {
+        throw new Error(error.message)
+    }
+}

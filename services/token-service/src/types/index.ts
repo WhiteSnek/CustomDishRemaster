@@ -5,7 +5,7 @@ export interface TokenType extends Document {
     userId: string | ObjectId;
     userType: string;
     token: string;
-    deviceInfo: Object;
+    deviceInfo: Object[];
     ipAddress: string;
     isRevoked: boolean;
 }
