@@ -2,36 +2,36 @@ import { ApiResponse } from "../utils/ApiResponse";
 import { asyncHandler } from "../utils/AsyncHandler";
 import { Customer } from "../model";
 import { Request, Response } from "express";
-import { uploadToS3 } from "../utils/uploadOnS3";
+import { deleteFromS3, uploadToS3 } from "../utils/uploadOnS3";
 import { generateTokens } from "../queue/tokens";
 import { sendNewDeviceLoginMail, sendOtpRequest } from "../queue/messaging";
 
 
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
     // get customer details from front end
-    const { fullname, email, username, password, mobileNumber } = req.body;
+    const { fullname, email,  password, mobileNumber } = req.body;
     // validation - not empty
     if (
-      [fullname, email, username, password, mobileNumber].some((field) => field?.trim() === "")
+      [fullname, email, password, mobileNumber].some((field) => field?.trim() === "")
     ) {
         return res
         .status(400)
         .json(new ApiResponse(400, {}, "All fields is required"));
     }
   
-    // check if customer already exists: username and email
+    // check if customer already exists: mobile number and email
     const existedUser = await Customer.findOne({
       $or: [{ email }, { mobileNumber }],
     });
     if (existedUser)
-      return res.status(409).json( new ApiResponse(409, {}, "Customer with email or username exists"));
+      return res.status(409).json( new ApiResponse(409, {}, "Customer with email or mobile number exists"));
   
     // check for images
     const displayImageFile = req.file; 
     let displayImage = null;
     // check for avatar
     if (displayImageFile){
-      displayImage = await uploadToS3(displayImageFile, `profile/${username}`);
+      displayImage = await uploadToS3(displayImageFile, `profiles/customer/${email}`);
       if (!displayImage) return res.status(500).json( new ApiResponse(500, {}, "displayImage upload failed!"));
     }
     // create customer object - create entry in db
@@ -183,23 +183,6 @@ const sendOtp = asyncHandler(async(req: Request, res: Response)=> {
   }
 })
 
-const updateAccountDetails = asyncHandler(async(req: Request, res: Response)=>{
-  const { email, mobileNumber } = req.body;
-  if(!email || !mobileNumber) return res.status(400).json(new ApiResponse(400,{},"Atleast one of the fields is required!"))
-  const customerId = req.customer._id;
-  //TODO: email or mobile number authentication logic.
-  const customer = await Customer.findByIdAndUpdate(customerId, {
-    $set: {
-      email,
-      mobileNumber
-    }
-  }, {
-    new: true
-  });
-  if(!customer) return res.status(500).json(new ApiResponse(500,{},"Something went wrong while updating the details"))
-    return res.status(200).json(new ApiResponse(200, customer, "Account details updated successfully"));
-})
-
 const updatePassword = asyncHandler(async(req: Request, res: Response)=>{
   const { email, newPassword } = req.body
   //TODO: validate email logic
@@ -238,7 +221,9 @@ const deactivateAccount = asyncHandler(async(req: Request, res: Response) => {
 const deleteAccount = asyncHandler(async(req: Request, res:Response) => {
   const customerId = req.customer._id
   try {
-    await Customer.findByIdAndDelete(customerId);
+    const customer = await Customer.findByIdAndDelete(customerId);
+    const key = `profiles/customer/${customer?.email}`
+    await deleteFromS3(key);
     return res.status(200).json(new ApiResponse(200, {}, "Account deleted successfully"))
   } catch (error) {
     return res.status(500).json(new ApiResponse(500, {}, "Something went wrong while deleting the account"))
@@ -289,4 +274,4 @@ const deleteAddress = asyncHandler(async(req: Request, res: Response)=>{
 })
 
 
-export { loginUser, registerUser, logoutUser, getCurrentCustomer, updateAccountDetails, updatePassword, deactivateAccount, deleteAccount, addAddress, deleteAddress, sendOtp };
+export { loginUser, registerUser, logoutUser, getCurrentCustomer, updatePassword, deactivateAccount, deleteAccount, addAddress, deleteAddress, sendOtp };
