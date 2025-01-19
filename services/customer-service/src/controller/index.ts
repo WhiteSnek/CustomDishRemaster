@@ -31,7 +31,7 @@ const registerUser = asyncHandler(async (req:Request, res:Response) => {
     let displayImage = null;
     // check for avatar
     if (displayImageFile){
-      displayImage = await uploadToS3(displayImageFile, `profiles/customer/${email}`);
+      displayImage = await uploadToS3(displayImageFile, `profiles/customer/${email.split('@')[0]}`);
       if (!displayImage) return res.status(500).json( new ApiResponse(500, {}, "displayImage upload failed!"));
     }
     // create customer object - create entry in db
@@ -222,7 +222,7 @@ const deleteAccount = asyncHandler(async(req: Request, res:Response) => {
   const customerId = req.customer._id
   try {
     const customer = await Customer.findByIdAndDelete(customerId);
-    const key = `profiles/customer/${customer?.email}`
+    const key = `profiles/customer/${customer?.email.split('@')[0]}`
     await deleteFromS3(key);
     return res.status(200).json(new ApiResponse(200, {}, "Account deleted successfully"))
   } catch (error) {

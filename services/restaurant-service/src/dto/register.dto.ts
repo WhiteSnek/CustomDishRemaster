@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsObject, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber, IsObject, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 class AddressDTO {
@@ -36,9 +36,9 @@ export class RegisterDTO {
     @IsNotEmpty()
     email: string;
 
-    @IsString()
+    @IsArray()
     @IsNotEmpty()
-    mobileNumber: string;
+    mobileNumber: string[];
 
     @IsString()
     @IsNotEmpty()
