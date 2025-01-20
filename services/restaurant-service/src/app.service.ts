@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { RegisterDTO } from './dto';
+import { Injectable, Res } from '@nestjs/common';
+import { LoginDTO, RegisterDTO } from './dto';
 import { PrismaService } from './prisma/prisma.service';
 import { ApiResponse } from './utils/ApiResponse';
 import * as argon from 'argon2';
 import { S3Service } from './s3/s3.service';
+import { generateTokens } from './queue/tokens';
+import { sendNewDeviceLoginMail } from './queue/messaging';
+import { Response } from 'express';
 @Injectable()
 export class AppService {
   constructor(private prisma: PrismaService, private s3: S3Service) {}
@@ -53,7 +56,7 @@ export class AppService {
           mobileNumber: dto.mobileNumber,
           openingHours: dto.openingHours,
           deliveryRange: dto.deliveryRange,
-          displayImage: ""
+          displayImage: displayImageUrl
         }
       })
       return new ApiResponse(201, {}, 'Restaurant created successfully')
@@ -62,5 +65,37 @@ export class AppService {
     }
   }
 
+  async login(dto: LoginDTO, @Res() res: Response, deviceInfo: string, ipAddress: string) {
+    try {
+      const restaurant = await this.prisma.restaurants.findUnique({
+        where: {
+          email: dto.email,
+        },
+      });
+      if (!restaurant) return new ApiResponse(404, {}, 'Restaurant not found')
+      const pwMatches = await argon.verify(restaurant.password, dto.password);
+      if (!pwMatches) return new ApiResponse(403, {}, 'Incorrect email or password')
+      const { accessToken, refreshToken, newDeviceLogin } = await generateTokens(restaurant.id, deviceInfo, ipAddress);
+      if(newDeviceLogin) {
+        await sendNewDeviceLoginMail(restaurant.email, restaurant.name, deviceInfo)
+      }
 
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax'
+      });
+
+      res.cookie('refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax'
+      });
+      delete restaurant.password;
+      return new ApiResponse(200, restaurant, 'Restaurant logged in successfully');
+    } catch (error) {
+      console.log(error);
+      return new ApiResponse(500, {}, 'Something went wrong while logging in the user')
+    }
+  }
 }
