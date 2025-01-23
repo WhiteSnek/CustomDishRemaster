@@ -1,5 +1,11 @@
 import { Injectable, Res } from '@nestjs/common';
-import { LoginDTO, RegisterDTO, UpdateDTO, UpdatePasswordDTO } from './dto';
+import {
+  LoginDTO,
+  RegisterDTO,
+  SearchDTO,
+  UpdateDTO,
+  UpdatePasswordDTO,
+} from './dto';
 import { PrismaService } from './prisma/prisma.service';
 import { ApiResponse } from './utils/ApiResponse';
 import * as argon from 'argon2';
@@ -157,30 +163,112 @@ export class AppService {
       });
       return new ApiResponse(200, {}, 'Account updated successfully');
     } catch (error) {
-      return new ApiResponse(500, {}, "Something went wrong!")
+      return new ApiResponse(500, {}, 'Something went wrong!');
     }
   }
 
   async updatePassword(dto: UpdatePasswordDTO) {
     try {
-      const hash = await argon.hash(dto.newPassword)
+      const hash = await argon.hash(dto.newPassword);
       await this.prisma.restaurants.update({
         where: {
-          email: dto.email
+          email: dto.email,
         },
         data: {
-          password: hash
-        }
-      })
-      return new ApiResponse(200, {}, 'Password updated successfully')
+          password: hash,
+        },
+      });
+      return new ApiResponse(200, {}, 'Password updated successfully');
     } catch (error) {
-      return new ApiResponse(500, {}, "Something went wrong!")
+      return new ApiResponse(500, {}, 'Something went wrong!');
     }
   }
 
-  async deactivateAccount() {}
+  async deactivateAccount(email: string) {
+    try {
+      await this.prisma.restaurants.update({
+        where: {
+          email,
+        },
+        data: {
+          status: 'INACTIVE',
+        },
+      });
+      return new ApiResponse(200, {}, 'Account deactivated successfully');
+    } catch (error) {
+      return new ApiResponse(500, {}, 'Something went wrong!');
+    }
+  }
 
-  async deleteAccount() {}
+  async deleteAccount(email: string) {
+    try {
+      await this.prisma.restaurants.delete({
+        where: {
+          email,
+        },
+      });
+      const key = `profiles/restaurants/${email.split('@')[0]}`;
+      await this.s3.deleteFromS3(key);
+      return new ApiResponse(200, {}, 'Account deleted successfully');
+    } catch (error) {
+      return new ApiResponse(500, {}, 'Something went wrong!');
+    }
+  }
 
-  async getAllRestaurants() {}
+  async getAllRestaurants(dto: SearchDTO) {
+    try {
+      const restaurants = await this.prisma.restaurants.findMany({
+        where: {
+          status: 'ACTIVE',
+          AND: [
+            {
+              OR: [
+                { name: dto.name },
+                { category: dto.category },
+                { openingHours: dto.openingHours },
+                {
+                  address: {
+                    is: {
+                      OR: [
+                        { district: dto.address?.district },
+                        { city: dto.address?.city },
+                        { state: dto.address?.state },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      });
+      return new ApiResponse(200, restaurants, 'Restaurants found');
+    } catch (error) {
+      console.error('Error fetching restaurants:', error);
+      return new ApiResponse(500, {}, 'Something went wrong!');
+    }
+  }
+
+  async addMedia(media: Express.Multer.File[], email: string) {
+    try {
+      const mediaUrls: string[] = [];
+      for (let i=0;i<media.length;i++) {
+        const key = `media/${email.split('@')[0]}/${i}`
+        const url = await this.s3.uploadToS3(media[i], key)
+        mediaUrls.push(url);
+      }
+      await this.prisma.restaurants.update({
+        where: {
+          email
+        },
+        data: {
+          media: mediaUrls
+        }
+      })
+      return new ApiResponse(200, {}, 'Media added');
+    } catch (error) {
+      console.error('Error adding media:', error);
+      return new ApiResponse(500, {}, 'Something went wrong!');
+    }
+  }
 }

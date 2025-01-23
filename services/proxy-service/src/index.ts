@@ -8,8 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const proxyRoutes = [
-    { path: '/api/v1/users', target: process.env.USERS_SERVICE_URL || 'http://localhost:3001' },
-    { path: '/api/v1/order', target: process.env.ORDER_SERVICE_URL || 'http://localhost:3002' },
+    { path: '/api/v1/customers', target: process.env.USERS_SERVICE_URL || 'http://localhost:3001' },
+    { path: '/api/v1/restaurants', target: process.env.ORDER_SERVICE_URL || 'http://localhost:3002' },
     { path: '/api/v1/inventory', target: process.env.INVENTORY_SERVICE_URL || 'http://localhost:3003' },
     { path: '/api/v1/cart', target: process.env.CART_SERVICE_URL || 'http://localhost:3004' },
 ];
