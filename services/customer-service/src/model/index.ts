@@ -50,7 +50,6 @@ const customerSchema = new Schema<CustomerType>(
     },
     displayImage: {
       type: String, 
-      required: true,
     },
     address: [{
       type: addressSchema,

@@ -4,7 +4,11 @@ import userRouter from "./routes";
 import cookieParser from "cookie-parser";
 import connectDb from "./config";
 
-dotenv.config();
+dotenv.config({
+  path: `./.env.${process.env.NODE_ENV}`
+});
+
+console.log(`Loaded .env.${process.env.NODE_ENV}`);
 
 const app: Express = express();
 
@@ -20,7 +24,13 @@ app.use(express.static("public"));
 
 app.use(cookieParser());
 
+
+
 app.use(userRouter);
+
+app.get('/',async(req,res)=>{
+  res.send('Everything is fine!')
+})
 
 connectDb()
   .then(() => {
