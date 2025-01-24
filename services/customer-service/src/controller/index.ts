@@ -6,7 +6,6 @@ import { deleteFromS3, uploadToS3 } from "../utils/uploadOnS3";
 import { generateTokens } from "../queue/tokens";
 import { sendNewDeviceLoginMail, sendOtpRequest } from "../queue/messaging";
 
-
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
     // get customer details from front end
     const { fullname, email,  password, mobileNumber } = req.body;

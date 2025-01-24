@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "form-data": "^4.0.1",
+    "form-data-lite": "^1.0.3",
     "mongoose": "^8.9.5",
     "pactum": "^3.7.6",
     "ts-jest": "^29.2.5",
