@@ -1,6 +1,6 @@
 import express, { Express } from "express";
 import dotenv from "dotenv";
-import userRouter from "./routes";
+import userRouter from './routes'
 import cookieParser from "cookie-parser";
 import connectDb from "./config";
 
@@ -34,7 +34,7 @@ app.get('/',async(req,res)=>{
 
 connectDb()
   .then(() => {
-    app.listen(process.env.PORT || 3001, () => {
+    app.listen(process.env.PORT || 3003, () => {
       console.log(`Server running on port ${process.env.PORT}`);
     });
   })

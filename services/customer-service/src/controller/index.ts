@@ -6,14 +6,14 @@ import { deleteFromS3, uploadToS3 } from "../utils/uploadOnS3";
 import { generateTokens } from "../queue/tokens";
 import { sendNewDeviceLoginMail, sendOtpRequest } from "../queue/messaging";
 
-
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
     // get customer details from front end
     const { fullname, email,  password, mobileNumber } = req.body;
     // validation - not empty
-    if (
+    if (!fullname || !email || !password || !mobileNumber ||
       [fullname, email, password, mobileNumber].some((field) => field?.trim() === "")
     ) {
+      console.log(fullname, email, password, mobileNumber)
         return res
         .status(400)
         .json(new ApiResponse(400, {}, "All fields is required"));

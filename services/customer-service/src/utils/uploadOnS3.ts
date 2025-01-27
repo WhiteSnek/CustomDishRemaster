@@ -1,7 +1,9 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from 'dotenv'
 
-dotenv.config()
+dotenv.config({
+  path: `./.env.${process.env.NODE_ENV}`
+});
 
 // Ensure all required environment variables are present
 if (!process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY || !process.env.AWS_BUCKET_NAME || !process.env.AWS_REGION) {

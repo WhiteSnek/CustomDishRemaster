@@ -37,8 +37,7 @@ proxyRoutes.forEach(({ path, target }) => {
         path,
         createProxyMiddleware({
             target,
-            changeOrigin: true,
-            pathRewrite: (path) => path.replace(/^\/[^/]+/, '')
+            changeOrigin: true
         })
     );
 });
