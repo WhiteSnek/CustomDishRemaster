@@ -1,3 +1,4 @@
+import { ObjectId } from "mongoose";
 import { DeliveryAgent } from "../models";
 
 class Repository {
@@ -13,7 +14,11 @@ class Repository {
         return await DeliveryAgent.findOne({ $or: [{ email }, { mobileNumber }] });
     }
 
-    async findById(id: string) {
+    async update(id: string | ObjectId, data: any){
+        return await DeliveryAgent.findByIdAndUpdate(id, data, { new: true });
+    }
+
+    async findById(id: string | ObjectId) {
         return await DeliveryAgent.findById(id).select("-password");
       }
 }
