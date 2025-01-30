@@ -1,5 +1,5 @@
 import amqp from 'amqplib'
-import { generateCorrelationId } from 'src/utils/CorrelationId';
+import { generateCorrelationId } from '../utils/CorrelationId';
 
 export const generateTokens = async (userId: string, deviceInfo: Object, ipAddress: string) => {
     try {
@@ -15,7 +15,7 @@ export const generateTokens = async (userId: string, deviceInfo: Object, ipAddre
     
         const message = {
             userId,
-            userType: "restaurant",
+            userType: "delivery agent",
             deviceInfo,
             ipAddress
         }

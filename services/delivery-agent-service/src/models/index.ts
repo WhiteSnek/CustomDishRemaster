@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from 'bcrypt'
 import { Model } from "mongoose";
-import { DeliveryAgentType, VehicleType } from "../types";
+import { DeliveryAgentType, VehicleType } from "../types/index";
 
 const vehicleSchema = new Schema<VehicleType>({
     type: {
