@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { deleteFromS3, uploadToS3 } from "../utils/uploadOnS3";
 import { generateTokens } from "../queue/tokens";
 import { sendNewDeviceLoginMail, sendOtpRequest } from "../queue/messaging";
+import bcrypt from 'bcrypt'
 
 const registerUser = asyncHandler(async (req:Request, res:Response) => {
     // get customer details from front end
@@ -35,11 +36,12 @@ const registerUser = asyncHandler(async (req:Request, res:Response) => {
       if (!displayImage) return res.status(500).json( new ApiResponse(500, {}, "displayImage upload failed!"));
     }
     // create customer object - create entry in db
+    const hash = await bcrypt.hash(password, 10)
     const customer = await Customer.create({
       fullname,
       displayImage,
       email,
-      password,
+      password: hash,
       mobileNumber
     });
   
@@ -147,17 +149,6 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const logoutUser = asyncHandler(async(req: Request,res: Response)=>{
-  await Customer.findByIdAndUpdate(
-    req.customer?._id, 
-    {
-      $set: {
-        refreshToken: undefined,
-      },
-    },
-    {
-      new: true,
-    }
-  );
   const options = {
     httpOnly: true,
     secure: true,

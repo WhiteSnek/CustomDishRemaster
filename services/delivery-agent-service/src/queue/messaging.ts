@@ -1,5 +1,5 @@
 import amqp from 'amqplib'
-import { generateCorrelationId } from 'src/utils/CorrelationId';
+import { generateCorrelationId } from '../utils/CorrelationId';
 
 export const sendOtpRequest = async (email: string) => {
     try {
@@ -10,7 +10,7 @@ export const sendOtpRequest = async (email: string) => {
         await channel.assertQueue(requestQueue, { durable: true });
     
         // Send request to the messaging service to send OTP
-        const otpRequest = { email, userType: "restaurant" };
+        const otpRequest = { email, userType: "delivery agent" };
         channel.sendToQueue(requestQueue, Buffer.from(JSON.stringify(otpRequest)));
     
         console.log(`OTP request sent for ${email}`);
