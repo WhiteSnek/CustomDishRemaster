@@ -6,7 +6,9 @@ import (
 	"dish-service/src/model"
 	"dish-service/src/utils"
 	"log"
+	"math"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -95,15 +97,34 @@ func AddDish(client *mongo.Client, c *gin.Context) {
 } 
 
 
-// TODO: Add pagination
 func GetAllDishes(client *mongo.Client, c *gin.Context) {
 	var input GetDishesFilter
 
+	// Bind query parameters
 	if err := c.ShouldBindQuery(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid query parameters"})
 		return
 	}
 
+	// Default pagination values
+	limit := int64(10) // Default limit per page
+	page := int64(1)   // Default page number
+
+	// Parse limit and page from query parameters
+	if c.Query("limit") != "" {
+		if parsedLimit, err := strconv.ParseInt(c.Query("limit"), 10, 64); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+	if c.Query("page") != "" {
+		if parsedPage, err := strconv.ParseInt(c.Query("page"), 10, 64); err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+
+	skip := (page - 1) * limit // Calculate offset
+
+	// Build filter criteria
 	filter := bson.M{}
 	if input.Name != "" {
 		filter["name"] = bson.M{"$regex": input.Name, "$options": "i"} // Case-insensitive search
@@ -134,32 +155,56 @@ func GetAllDishes(client *mongo.Client, c *gin.Context) {
 		filter["availabilityStatus"] = input.AvailabilityStatus
 	}
 	if len(input.Tags) > 0 {
-		filter["tags"] = bson.M{"$in": input.Tags} 
+		filter["tags"] = bson.M{"$in": input.Tags}
 	}
 
+	// Projection to return only selected fields
 	projection := bson.M{
-		"name":            1,
-		"displayImage":    1,
-		"price":           1,
-		"description":     1,
-		"category":        1,
-		"isVeg":           1,
+		"name":         1,
+		"displayImage": 1,
+		"price":        1,
+		"description":  1,
+		"category":     1,
+		"isVeg":        1,
 	}
 
-	cursor, err := config.DishCollection.Find(context.TODO(), filter, options.Find().SetProjection(projection))
+	// Query dishes with pagination
+	findOptions := options.Find().
+		SetProjection(projection).
+		SetLimit(limit).
+		SetSkip(skip)
+
+	cursor, err := config.DishCollection.Find(context.TODO(), filter, findOptions)
 	if err != nil {
 		log.Println("Error fetching dishes:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch dishes"})
 		return
 	}
 	defer cursor.Close(context.TODO())
+
 	var dishes []model.Dish
 	if err := cursor.All(context.TODO(), &dishes); err != nil {
 		log.Println("Error decoding dishes:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode dishes"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Dishes fetced successfully!", "dishes": dishes})
+
+	// Count total dishes matching filter (for frontend pagination)
+	totalCount, err := config.DishCollection.CountDocuments(context.TODO(), filter)
+	if err != nil {
+		log.Println("Error counting documents:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count dishes"})
+		return
+	}
+
+	// Return paginated results
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Dishes fetched successfully!",
+		"dishes":      dishes,
+		"totalCount":  totalCount,
+		"currentPage": page,
+		"totalPages":  int64(math.Ceil(float64(totalCount) / float64(limit))),
+	})
 }
 
 func GetDishDetails(client *mongo.Client, c *gin.Context) {
