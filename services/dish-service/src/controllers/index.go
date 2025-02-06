@@ -4,6 +4,7 @@ import (
 	"context"
 	"dish-service/src/config"
 	"dish-service/src/model"
+	"dish-service/src/utils"
 	"log"
 	"net/http"
 
@@ -37,7 +38,7 @@ type GetDishesFilter struct {
 	AvailabilityStatus string   `form:"availabilityStatus"`
 	Tags               []string `form:"tags"`
 }
-
+// TODO: Add logic for uploading files
 func AddDish(client *mongo.Client, c *gin.Context) {
 	var input AddDishInput
 
@@ -57,13 +58,24 @@ func AddDish(client *mongo.Client, c *gin.Context) {
 		return
 	}
 
+	var imageUrl string
+	file, fileHeader, err := c.Request.FormFile("displayImage")
+	if err == nil {
+		defer file.Close()
+		imageUrl, err = utils.SaveFile(file,fileHeader,"dish",restaurantIdStr, "dishes")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload image"})
+			return
+		}
+	}
+
 	newDish := model.Dish{
 		RestaurantId:      restaurantIdStr,
 		Name:              input.Name,
 		Description:       input.Description,
 		Category:          input.Category,
 		Price:             input.Price,
-		DisplayImage:      "", //TODO: add logic to handle files
+		DisplayImage:      imageUrl, //TODO: add logic to handle files
 		Type:              input.Type,
 		IsVeg:             input.IsVeg,
 		Popularity:        0,
@@ -72,16 +84,18 @@ func AddDish(client *mongo.Client, c *gin.Context) {
 		Tags:              input.Tags,
 	}
 
-	_, err := config.DishCollection.InsertOne(context.TODO(), newDish)
+	result, err := config.DishCollection.InsertOne(context.TODO(), newDish)
 	if err != nil {
 		log.Println("Error inserting dish:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add dish"})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "Dish added successfully!", "dishId": newDish.ID.Hex()})
+	c.JSON(http.StatusCreated, gin.H{"message": "Dish added successfully!", "dishId": result.InsertedID})
 
 } 
 
+
+// TODO: Add pagination
 func GetAllDishes(client *mongo.Client, c *gin.Context) {
 	var input GetDishesFilter
 
