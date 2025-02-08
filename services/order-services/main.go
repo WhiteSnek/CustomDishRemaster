@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"order-service/src/config"
+	"order-service/src/routes"
 	"os"
 	"time"
 
@@ -38,10 +39,10 @@ func main() {
 	r := gin.Default()
 	r.Use(gin.Logger())
 
-	// routes.Routes(r, client)
+	routes.Routes(r, client)
 
 
-	port := ":4000"
+	port := ":4001"
 	log.Println("Starting server on port", port)
 
 
