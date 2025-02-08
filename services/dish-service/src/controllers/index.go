@@ -40,7 +40,6 @@ type GetDishesFilter struct {
 	AvailabilityStatus string   `form:"availabilityStatus"`
 	Tags               []string `form:"tags"`
 }
-// TODO: Add logic for uploading files
 func AddDish(client *mongo.Client, c *gin.Context) {
 	var input AddDishInput
 

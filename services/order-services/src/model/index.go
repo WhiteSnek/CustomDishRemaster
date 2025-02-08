@@ -16,7 +16,8 @@ const (
 )
 
 type Order struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty"`
+	// ID              primitive.ObjectID `bson:"_id,omitempty"`
+	OrderId         int                `bson:"orderId"`
 	CustomerID      primitive.ObjectID `bson:"customer"`
 	Orders          []SingleOrder      `bson:"singleOrder"`
 	TotalPrice      float32            `bson:"price"`
@@ -26,21 +27,23 @@ type Order struct {
 	FulfillmentTime *time.Time         `bson:"fulfillmentTime,omitempty"`
 	DeliveryTime    *time.Time         `bson:"deliveryTime,omitempty"`
 	Discount        float32            `bson:"discount"`
-	CouponCode      string             `bson:"couponCode,omitempty"`
+	CouponCode      *string            `bson:"couponCode,omitempty"`
+	DeliveryAgent 	*primitive.ObjectID	`bson:"deliveryAgent, omitempty"`
+	RestaurantID   primitive.ObjectID `bson:"restaurant"`
 }
 
 type SingleOrder struct {
-	RestaurantID   primitive.ObjectID `bson:"restaurant"`
-	Price         float32            `bson:"price"`
-	DishID        primitive.ObjectID `bson:"dishId"`
-	Customizations Customizations    `bson:"customizations"`
+	Price          float32            `bson:"price"`
+	DishID         primitive.ObjectID `bson:"dishId"`
+	Quantity       int                `bson:"quantity"`
+	Customizations Customizations     `bson:"customizations"`
 }
 
 type Customizations struct {
-	Salty        int  `bson:"salty"`
-	Spicy        int  `bson:"spicy"`
-	ExtraCheese  int  `bson:"extraCheese"`
-	Sweetness    int  `bson:"sweetness"`
-	Onion        bool `bson:"onion"`
-	Garlic       bool `bson:"garlic"`
+	Salty       int  `bson:"salty, omitempty"`
+	Spicy       int  `bson:"spicy, omitempty"`
+	ExtraCheese int  `bson:"extraCheese, omitempty"`
+	Sweetness   int  `bson:"sweetness, omitempty"`
+	Onion       bool `bson:"onion, omitempty"`
+	Garlic      bool `bson:"garlic, omitempty"`
 }

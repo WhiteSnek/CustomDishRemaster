@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var DishCollection *mongo.Collection
+var OrderCollection *mongo.Collection
 
 func ConnectDB() (*mongo.Client, error) {
 	mongo_uri := os.Getenv("DATABASE_URL")
@@ -28,7 +28,7 @@ func ConnectDB() (*mongo.Client, error) {
 		return nil, err
 	}
 
-	DishCollection = client.Database("customDish").Collection("dishes")
+	OrderCollection = client.Database("customDish").Collection("orders")
 
 	log.Println("Connected to MongoDB!")
 	return client, nil
