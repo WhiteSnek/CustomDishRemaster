@@ -18,7 +18,7 @@ const (
 type Order struct {
 	// ID              primitive.ObjectID `bson:"_id,omitempty"`
 	OrderId         int                `bson:"orderId"`
-	CustomerID      primitive.ObjectID `bson:"customer"`
+	CustomerID      primitive.ObjectID `bson:"customerId"`
 	Orders          []SingleOrder      `bson:"singleOrder"`
 	TotalPrice      float32            `bson:"price"`
 	PaymentMode     string             `bson:"paymentMode"`
@@ -28,8 +28,8 @@ type Order struct {
 	DeliveryTime    *time.Time         `bson:"deliveryTime,omitempty"`
 	Discount        float32            `bson:"discount"`
 	CouponCode      *string            `bson:"couponCode,omitempty"`
-	DeliveryAgent 	*primitive.ObjectID	`bson:"deliveryAgent, omitempty"`
-	RestaurantID   primitive.ObjectID `bson:"restaurant"`
+	DeliveryAgentID 	*primitive.ObjectID	`bson:"deliveryAgentId, omitempty"`
+	RestaurantID   primitive.ObjectID `bson:"restaurantId"`
 }
 
 type SingleOrder struct {

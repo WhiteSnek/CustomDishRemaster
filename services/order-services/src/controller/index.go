@@ -8,6 +8,7 @@ import (
 	"order-service/src/config"
 	"order-service/src/model"
 	"order-service/src/queue"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -35,10 +36,17 @@ type Customizations struct {
 }
 
 type CreateOrderInput struct {
-	RestaurantID   primitive.ObjectID `json:"restaurant"`
+	RestaurantID   primitive.ObjectID `json:"restaurantId"`
 	Orders      []SingleOrder `json:"singleOrder"`
 	PaymentMode string        `json:"paymentMode"`
 	CouponCode  *string       `json:"couponCode,omitempty"`
+}
+
+type DeliveryAgentLocation struct {
+	AgentId primitive.ObjectID `json:"agentId"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func GenerateRandomOrderID() int {
@@ -159,6 +167,10 @@ func CancelOrder(client *mongo.Client, c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+	if order.Status == model.StatusOutForDelivery || order.Status == model.StatusBeingPrepared {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Order cannot be cancelled at this stage"})
+		return
+	}
 	// cancel the order
 	// send message to the restaurant service.
 	// send message to the payment service.
@@ -175,13 +187,18 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 	orderId := c.Param("orderId")
 	status := c.Param("status")
 	restaurantId, restaurantExists := c.Get("restaurantId")
-	deliveryAgentId, deliveryAgentExists := c.Get("deliveryAgent")
+	deliveryAgentId, deliveryAgentExists := c.Get("deliveryAgentId")
 	if !restaurantExists && !deliveryAgentExists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+	orderIdInt, err := strconv.Atoi(orderId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
 	var order model.Order
-	err := config.OrderCollection.FindOne(context.TODO(), bson.M{"orderId": orderId}).Decode(&order)
+	err = config.OrderCollection.FindOne(context.TODO(), bson.M{"orderId": orderIdInt}).Decode(&order)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -205,7 +222,7 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return 
 		}
-		updatedStatus := config.OrderCollection.FindOneAndUpdate(context.TODO(),bson.M{"orderId": orderId}, bson.M{"$set": status})
+		updatedStatus := config.OrderCollection.FindOneAndUpdate(context.TODO(),bson.M{"orderId": orderId}, bson.M{"$set": bson.M{"status": status}})
 		if updatedStatus.Err() != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
 			return
@@ -228,7 +245,7 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
 			return
 		}
-		if deliveryAgentObjectId != *order.DeliveryAgent {
+		if deliveryAgentObjectId != *order.DeliveryAgentID {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return 
 		}
@@ -242,6 +259,143 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 	}
 }
 
-func GetOrder() {}
+func GetOrder(client *mongo.Client, c *gin.Context) {
+	orderId:= c.Param("orderId")
+	orderIdInt, err := strconv.Atoi(orderId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+	var order model.Order
+	err = config.OrderCollection.FindOne(context.TODO(), bson.M{"orderId": orderIdInt}).Decode(&order)
+	if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+        return
+    }
+	// TODO: fetch details of the dish from dish service
+	// TODO: fetch details of the restaurant from the restaurant service
+	// TODO: fetch the details of the delivery agent from the delivery agent service
+	
+	// Return the result
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order fetched successfully!",
+        "dish": order,
+	})
+}
+// TODO: Apply filter and pagination
+// TODO: Apply projection and get the details of dish, restaurant, agent etc from the queue
+func GetAllOrders(client *mongo.Client, c *gin.Context) {
+	restaurantId, restaurantExists := c.Get("restaurantId")
+	deliveryAgent, deliveryAgentExists := c.Get("deliveryAgentId")
+	customer, customerExists := c.Get("customerId")
+	if !restaurantExists && !deliveryAgentExists && !customerExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var orders []model.Order
+	if restaurantExists {
+		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"restaurantId": restaurantId})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+			return
+		}
+		defer cur.Close(context.TODO())
+		if err := cur.All(context.TODO(), &orders); err != nil {
+			log.Println("Error decoding orders:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Restaurant orders fetched successfully", "orders": orders})
+		return
+	}
+	if deliveryAgentExists {
+		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"deliveryAgent": deliveryAgent})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+			return
+		}
+		defer cur.Close(context.TODO())
+		if err := cur.All(context.TODO(), &orders); err != nil {
+			log.Println("Error decoding orders:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Delivery agent orders fetched successfully", "orders": orders})
+		return
+	}
+	if customerExists {
+		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"customer": customer})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+			return
+		}
+		defer cur.Close(context.TODO())
+		if err := cur.All(context.TODO(), &orders); err != nil {
+			log.Println("Error decoding orders:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Customer orders fetched successfully", "orders": orders})
+		return
+	}
+}
 
-func TrackOrder() {}
+func TrackOrder(client *mongo.Client, c *gin.Context) {
+	orderId := c.Param("orderId")
+	customerId, exists := c.Get("customerId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
+		return
+	}
+	customerIdStr, ok := customerId.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid customer ID"})
+		return
+	} 
+	customerObjectId, err := primitive.ObjectIDFromHex(customerIdStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+	orderIdInt, err := strconv.Atoi(orderId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+	var order model.Order
+	err = config.OrderCollection.FindOne(context.TODO(), bson.M{"orderId": orderIdInt}).Decode(&order)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+	if customerObjectId != order.CustomerID {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
+		return
+	}
+	if order.Status != model.StatusOutForDelivery {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Order is not out for delivery"})
+		return
+	}
+	if order.DeliveryAgentID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Order is not assigned to a delivery agent"})
+		return
+	}
+
+	latitude, longitude, updatedAt, err := queue.GetOrderLocation(*order.DeliveryAgentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order location"})
+		return
+	}
+
+	agentLocation := DeliveryAgentLocation{
+		AgentId : *order.DeliveryAgentID,
+		Latitude : latitude,
+		Longitude : longitude,
+		UpdatedAt : updatedAt,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order location fetched successfully",
+		"location": agentLocation,
+	})
+}
