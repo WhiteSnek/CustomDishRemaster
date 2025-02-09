@@ -1,9 +1,9 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Prevent .env files from being committed
-if git diff --cached --name-only | grep -E '\.env($|\.)'; then
-  echo "❌ ERROR: .env files should not be committed!"
+# Prevent any .env files from being committed
+if git diff --cached --name-only | grep -E '\.env(\..+)?$'; then
+  echo "❌ ERROR: .env files (.env, .env.dev, .env.test, etc.) should not be committed!"
   exit 1
 fi
 
