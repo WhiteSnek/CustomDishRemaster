@@ -3,7 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.env*": [
+      "echo '❌ ERROR: .env files should not be committed!'",
+      "exit 1"
+    ],
+    "node_modules/*": [
+      "echo '❌ ERROR: node_modules should not be committed!'",
+      "exit 1"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -15,6 +26,8 @@
   },
   "devDependencies": {
     "@types/aws-sdk": "^2.7.4",
-    "@types/dotenv": "^8.2.3"
+    "@types/dotenv": "^8.2.3",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.4.3"
   }
 }

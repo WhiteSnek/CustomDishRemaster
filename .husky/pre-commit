@@ -1,0 +1,17 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Prevent any .env files from being committed
+if git diff --cached --name-only | grep -E '\.env(\..+)?$'; then
+  echo "❌ ERROR: .env files (.env, .env.dev, .env.test, etc.) should not be committed!"
+  exit 1
+fi
+
+# Prevent node_modules from being committed
+if git diff --cached --name-only | grep -E '^node_modules/'; then
+  echo "❌ ERROR: node_modules should not be committed!"
+  exit 1
+fi
+
+# Run lint-staged
+npx lint-staged
