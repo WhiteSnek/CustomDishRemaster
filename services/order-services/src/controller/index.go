@@ -15,7 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	// "go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type SingleOrder struct {
@@ -71,6 +71,7 @@ type OrderDetails struct {
 	DeliveryAgent 	queue.DeliveryAgentDetails	`json:"deliveryAgent"`
 	Restaurant   queue.RestaurantDetails `json:"restaurant"`
 }
+
 
 func GenerateRandomOrderID() int {
 	return rand.Intn(900000) + 100000
@@ -195,7 +196,17 @@ func CancelOrder(client *mongo.Client, c *gin.Context) {
 	}
 	// cancel the order
 	//TODO: send message to the restaurant service.
+	message, err := queue.SendMessageToRestaurant(order.RestaurantID)
+	if err != nil {
+		log.Println("Error sending message to restaurant:", err)
+	}
+	log.Println(message)
 	//TODO: send message to the payment service.
+	message, err = queue.SendMessageToPaymentService()
+	if err != nil {
+		log.Println("Error sending message to payment service:", err)
+	}
+	log.Println(message)
 	update := bson.M{"status": model.StatusCancelled}
 	updatedResult := config.OrderCollection.FindOneAndUpdate(context.TODO(), filter, bson.M{"$set": update})
 	if updatedResult.Err() != nil {
@@ -281,8 +292,6 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 	}
 }
 
-
-
 func GetOrder(client *mongo.Client, c *gin.Context) {
 	orderId := c.Param("orderId")
 	orderIdInt, err := strconv.Atoi(orderId)
@@ -356,62 +365,134 @@ func GetOrder(client *mongo.Client, c *gin.Context) {
 	})
 }
 
-// TODO: Apply filter and pagination
-// TODO: Apply projection and get the details of dish, restaurant, agent etc from the queue
 func GetAllOrders(client *mongo.Client, c *gin.Context) {
+	// Extract user type (Restaurant, Delivery Agent, or Customer)
 	restaurantId, restaurantExists := c.Get("restaurantId")
-	deliveryAgent, deliveryAgentExists := c.Get("deliveryAgentId")
-	customer, customerExists := c.Get("customerId")
+	deliveryAgentId, deliveryAgentExists := c.Get("deliveryAgentId")
+	customerId, customerExists := c.Get("customerId")
+
 	if !restaurantExists && !deliveryAgentExists && !customerExists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	var orders []model.Order
+
+	// Query Filters
+	filter := bson.M{}
 	if restaurantExists {
-		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"restaurantId": restaurantId})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
-			return
-		}
-		defer cur.Close(context.TODO())
-		if err := cur.All(context.TODO(), &orders); err != nil {
-			log.Println("Error decoding orders:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Restaurant orders fetched successfully", "orders": orders})
+		filter["restaurantId"] = restaurantId
+	} else if deliveryAgentExists {
+		filter["deliveryAgentId"] = deliveryAgentId
+	} else if customerExists {
+		filter["customerId"] = customerId
+	}
+
+	// Additional Filters: Order Status, Payment Mode (if provided)
+	if status := c.Query("status"); status != "" {
+		filter["status"] = status
+	}
+	if paymentMode := c.Query("paymentMode"); paymentMode != "" {
+		filter["paymentMode"] = paymentMode
+	}
+
+	// Pagination Parameters
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10")) // Default: 10 results
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+	skip, err := strconv.Atoi(c.DefaultQuery("skip", "0")) // Default: No skipping
+	if err != nil || skip < 0 {
+		skip = 0
+	}
+
+	// Apply Projection to optimize MongoDB query
+	projection := bson.M{
+		"orderId":        1,
+		"customerId":     1,
+		"orders":         1,
+		"totalPrice":     1,
+		"paymentMode":    1,
+		"status":         1,
+		"orderTime":      1,
+		"discount":       1,
+		"couponCode":     1,
+		"deliveryAgentId": 1,
+		"restaurantId":   1,
+	}
+	findOptions := options.Find().
+		SetProjection(projection).
+		SetLimit(int64(limit)).
+		SetSkip(int64(skip))
+	// Fetch orders from MongoDB
+	var orders []model.Order
+	cur, err := config.OrderCollection.Find(context.TODO(), filter, findOptions)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
 		return
 	}
-	if deliveryAgentExists {
-		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"deliveryAgent": deliveryAgent})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
-			return
-		}
-		defer cur.Close(context.TODO())
-		if err := cur.All(context.TODO(), &orders); err != nil {
-			log.Println("Error decoding orders:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Delivery agent orders fetched successfully", "orders": orders})
+	defer cur.Close(context.TODO())
+
+	// Decode MongoDB results
+	if err := cur.All(context.TODO(), &orders); err != nil {
+		log.Println("Error decoding orders:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
 		return
 	}
-	if customerExists {
-		cur, err := config.OrderCollection.Find(context.TODO(), bson.M{"customer": customer})
+
+	// Fetch dish, restaurant, and delivery agent details from RabbitMQ
+	var enrichedOrders []OrderDetails
+	for _, order := range orders {
+		// Fetch restaurant details
+		restaurant, err := queue.GetRestaurantDetails(order.RestaurantID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch restaurant details"})
 			return
 		}
-		defer cur.Close(context.TODO())
-		if err := cur.All(context.TODO(), &orders); err != nil {
-			log.Println("Error decoding orders:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode orders"})
-			return
+
+		// Fetch delivery agent details (if assigned)
+		var deliveryAgent queue.DeliveryAgentDetails
+		if order.DeliveryAgentID != nil {
+			agentDetails, err := queue.GetAgentDetails(*order.DeliveryAgentID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch delivery agent details"})
+				return
+			}
+			deliveryAgent = *agentDetails
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Customer orders fetched successfully", "orders": orders})
-		return
+
+		// Fetch dish details for each order item
+		var detailedOrders []SingleOrderDetails
+		for _, singleOrder := range order.Orders {
+			dishDetails, err := queue.GetDishDetails(singleOrder.DishID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch dish details"})
+				return
+			}
+			detailedOrders = append(detailedOrders, SingleOrderDetails{
+				Price:          singleOrder.Price,
+				Dish:           *dishDetails,
+				Quantity:       singleOrder.Quantity,
+				Customizations: singleOrder.Customizations,
+			})
+		}
+
+		// Append enriched order details
+		enrichedOrders = append(enrichedOrders, OrderDetails{
+			OrderId:        order.OrderId,
+			CustomerID:     order.CustomerID,
+			Orders:         detailedOrders,
+			TotalPrice:     order.TotalPrice,
+			Status:         order.Status,
+			OrderTime:      order.OrderTime,
+			DeliveryAgent:  deliveryAgent,
+			Restaurant:     *restaurant,
+		})
 	}
+
+	// Return JSON response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Orders fetched successfully",
+		"orders":  enrichedOrders,
+	})
 }
 
 func TrackOrder(client *mongo.Client, c *gin.Context) {
