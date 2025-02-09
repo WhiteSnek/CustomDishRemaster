@@ -59,14 +59,21 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
-		if userType != "restaurant" {
+		if(userType != "restaurant" && userType != "customer" &&  userType != "delivery_agent" ){
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user type in token"})
 			c.Abort()
 			return
 		}
+		if userType == "restaurant" {
+			c.Set("restaurantId", userId)
+		}
 
-		c.Set("restaurantId", userId)
+		if userType == "customer" {
+			c.Set("customerId", userId)
+		}
+		if userType == "delivery_agent" {
+			c.Set("deliveryAgentId", userId)
+		}
 		c.Next()
 	}
 }

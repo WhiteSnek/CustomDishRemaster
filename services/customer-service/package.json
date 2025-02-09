@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "cross-env NODE_ENV=dev nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
     "test": "cross-env NODE_ENV=test nodemon src/index.ts",
     "start": "npx tsx src/index.ts"
   },

@@ -49,6 +49,29 @@ type DeliveryAgentLocation struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+type SingleOrderDetails struct {
+	Price          float32            `json:"price"`
+	Dish           queue.DishDetails `json:"dish"`
+	Quantity       int                `json:"quantity"`
+	Customizations model.Customizations     `json:"customizations"`
+}
+
+type OrderDetails struct {
+	OrderId         int                `json:"orderId"`
+	CustomerID      primitive.ObjectID `json:"customerId"`
+	Orders          []SingleOrderDetails      `json:"singleOrder"`
+	TotalPrice      float32            `json:"price"`
+	PaymentMode     string             `json:"paymentMode"`
+	Status          string             `json:"status"`
+	OrderTime       time.Time          `json:"orderTime"`
+	FulfillmentTime *time.Time         `json:"fulfillmentTime,omitempty"`
+	DeliveryTime    *time.Time         `json:"deliveryTime,omitempty"`
+	Discount        float32            `json:"discount"`
+	CouponCode      *string            `json:"couponCode,omitempty"`
+	DeliveryAgent 	queue.DeliveryAgentDetails	`json:"deliveryAgent"`
+	Restaurant   queue.RestaurantDetails `json:"restaurant"`
+}
+
 func GenerateRandomOrderID() int {
 	return rand.Intn(900000) + 100000
 }
@@ -136,7 +159,6 @@ func CreateOrder(client *mongo.Client, c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Order created successfully!", "orderId": result.InsertedID})
 }
 
-
 func CancelOrder(client *mongo.Client, c *gin.Context) {
 	// get order id from params
 	orderId := c.Param("id")
@@ -172,8 +194,8 @@ func CancelOrder(client *mongo.Client, c *gin.Context) {
 		return
 	}
 	// cancel the order
-	// send message to the restaurant service.
-	// send message to the payment service.
+	//TODO: send message to the restaurant service.
+	//TODO: send message to the payment service.
 	update := bson.M{"status": model.StatusCancelled}
 	updatedResult := config.OrderCollection.FindOneAndUpdate(context.TODO(), filter, bson.M{"$set": update})
 	if updatedResult.Err() != nil {
@@ -259,29 +281,81 @@ func UpdateOrderStatus(client *mongo.Client, c *gin.Context) {
 	}
 }
 
+
+
 func GetOrder(client *mongo.Client, c *gin.Context) {
-	orderId:= c.Param("orderId")
+	orderId := c.Param("orderId")
 	orderIdInt, err := strconv.Atoi(orderId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
 		return
 	}
+
 	var order model.Order
 	err = config.OrderCollection.FindOne(context.TODO(), bson.M{"orderId": orderIdInt}).Decode(&order)
 	if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-        return
-    }
-	// TODO: fetch details of the dish from dish service
-	// TODO: fetch details of the restaurant from the restaurant service
-	// TODO: fetch the details of the delivery agent from the delivery agent service
-	
-	// Return the result
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	// Fetch dish details for each order item
+	var enrichedOrders []SingleOrderDetails
+	for _, o := range order.Orders {
+		dishDetails, err := queue.GetDishDetails(o.DishID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch dish details: " + err.Error()})
+			return
+		}
+
+		enrichedOrders = append(enrichedOrders, SingleOrderDetails{
+			Price:          o.Price,
+			Dish:           *dishDetails,
+			Quantity:       o.Quantity,
+			Customizations: o.Customizations,
+		})
+	}
+
+	// Fetch restaurant details
+	restaurant, err := queue.GetRestaurantDetails(order.RestaurantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch restaurant details: " + err.Error()})
+		return
+	}
+
+	// Fetch delivery agent details (if assigned)
+	var deliveryAgent *queue.DeliveryAgentDetails
+	if order.DeliveryAgentID != nil {
+		deliveryAgent, err = queue.GetAgentDetails(*order.DeliveryAgentID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch delivery agent details: " + err.Error()})
+			return
+		}
+	}
+
+	// Create the final response object
+	orderResponse := OrderDetails{
+		OrderId:         order.OrderId,
+		CustomerID:      order.CustomerID,
+		Orders:          enrichedOrders,
+		TotalPrice:      order.TotalPrice,
+		PaymentMode:     order.PaymentMode,
+		Status:          order.Status,
+		OrderTime:       order.OrderTime,
+		FulfillmentTime: order.FulfillmentTime,
+		DeliveryTime:    order.DeliveryTime,
+		Discount:        order.Discount,
+		CouponCode:      order.CouponCode,
+		DeliveryAgent:   *deliveryAgent,
+		Restaurant:      *restaurant,
+	}
+
+	// Return the enriched order details
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order fetched successfully!",
-        "dish": order,
+		"order":   orderResponse,
 	})
 }
+
 // TODO: Apply filter and pagination
 // TODO: Apply projection and get the details of dish, restaurant, agent etc from the queue
 func GetAllOrders(client *mongo.Client, c *gin.Context) {
@@ -380,8 +454,8 @@ func TrackOrder(client *mongo.Client, c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Order is not assigned to a delivery agent"})
 		return
 	}
-
-	latitude, longitude, updatedAt, err := queue.GetOrderLocation(*order.DeliveryAgentID)
+	var locationDetails *queue.DeliveryAgentLocation
+	locationDetails, err = queue.GetOrderLocation(*order.DeliveryAgentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order location"})
 		return
@@ -389,9 +463,9 @@ func TrackOrder(client *mongo.Client, c *gin.Context) {
 
 	agentLocation := DeliveryAgentLocation{
 		AgentId : *order.DeliveryAgentID,
-		Latitude : latitude,
-		Longitude : longitude,
-		UpdatedAt : updatedAt,
+		Latitude :	locationDetails.Longitude,
+		Longitude : locationDetails.Longitude,
+		UpdatedAt : locationDetails.UpdatedAt,
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -5,10 +5,9 @@ import cookieParser from "cookie-parser";
 import connectDb from "./config";
 
 dotenv.config({
-  path: `./.env.${process.env.NODE_ENV}`
+  path: `./.env`
 });
 
-console.log(`Loaded .env.${process.env.NODE_ENV}`);
 
 const app: Express = express();
 
