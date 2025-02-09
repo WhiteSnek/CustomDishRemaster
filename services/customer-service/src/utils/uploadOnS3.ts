@@ -2,7 +2,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import dotenv from 'dotenv'
 
 dotenv.config({
-  path: `./.env.${process.env.NODE_ENV}`
+  path: `./.env`
 });
 
 // Ensure all required environment variables are present
