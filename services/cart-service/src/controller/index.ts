@@ -17,7 +17,7 @@ const addToCart = asyncHandler(async (req: Request, res: Response) => {
     cart.items.push(validateData);
     cart.totalPrice += validateData.price * validateData.quantity;
 
-    await client.set(cartKey, JSON.stringify(cart));
+    await client.set(cartKey, JSON.stringify(cart), { EX: 86400});
     return res
       .status(201)
       .json(new ApiResponse(201, {}, "Added to cart successfully"));
@@ -99,6 +99,10 @@ const clearCart = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId;
   const cartKey = `cart:${userId}`;
   try {
+    const cartData = await client.get(cartKey);
+    if (!cartData) {
+      return res.status(404).json(new ApiResponse(404, {}, "Cart is empty"));
+    }
     await client.del(cartKey);
     return res
       .status(200)
