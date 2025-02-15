@@ -27,6 +27,14 @@ class Repository {
       { new: true }
     );
   }
+
+  async delete(id: ObjectId){
+    return await Coupon.findByIdAndDelete(id)
+  }
+
+  async getCoupons(){
+    
+  }
 }
 
 export default Repository;
