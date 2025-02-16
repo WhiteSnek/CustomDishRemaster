@@ -1,4 +1,3 @@
-import { ObjectId } from "mongoose";
 import { Coupon } from "../model";
 
 class Repository {
@@ -10,15 +9,15 @@ class Repository {
     return await Coupon.findOne(data);
   }
 
-  async findById(id: ObjectId) {
+  async findById(id: string) {
     return await Coupon.findById(id);
   }
 
-  async update(id: string | ObjectId, data: any) {
+  async update(id: string, data: any) {
     return await Coupon.findByIdAndUpdate(id, data, { new: true });
   }
 
-  async claim(id: ObjectId, userId: string) {
+  async claim(id: string, userId: string) {
     return await Coupon.findByIdAndUpdate(
       id,
       {
@@ -28,12 +27,12 @@ class Repository {
     );
   }
 
-  async delete(id: ObjectId){
+  async delete(id: string){
     return await Coupon.findByIdAndDelete(id)
   }
 
-  async getCoupons(){
-    
+  async find(filters: any){
+    return await Coupon.find(filters)
   }
 }
 
