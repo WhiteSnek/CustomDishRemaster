@@ -20,7 +20,7 @@ export const verifyToken = asyncHandler(async (req: Request, res: Response, next
 
         if (typeof decodedToken === 'object' && decodedToken !== null && 'userId' in decodedToken && 'userType' in decodedToken) {
             const { userId, userType } = decodedToken as JWTResponse;
-            if (!userId || !userType || userType !== 'admin') return res.status(401).json(new ApiResponse(401, {}, "Invalid Token"));
+            if (!userId || !userType || userType !== 'customer') return res.status(401).json(new ApiResponse(401, {}, "Invalid Token"));
             req.userId = userId;
             next();
         } else {
