@@ -76,9 +76,10 @@ func AddDish(client *mongo.Client, c *gin.Context) {
 		Description:       input.Description,
 		Category:          input.Category,
 		Price:             input.Price,
-		DisplayImage:      imageUrl, //TODO: add logic to handle files
+		DisplayImage:      imageUrl, 
 		Type:              input.Type,
 		IsVeg:             input.IsVeg,
+		Rating: 		   0,
 		Popularity:        0,
 		PreparationTime:   input.PreparationTime,
 		AvailabilityStatus: input.AvailabilityStatus,

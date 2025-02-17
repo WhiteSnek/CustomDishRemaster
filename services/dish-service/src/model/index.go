@@ -13,6 +13,7 @@ type Dish struct {
 	Type string `bson:"type"`
 	IsVeg bool `bson:"isVeg"`
 	Popularity int `bson:"popularity"`
+	Rating 	int `bson:"rating"`
 	PreparationTime int `bson:"preparationTime"`
 	AvailabilityStatus string `bson:"availabilityStatus"`
 	Tags []string `bson:"tags"`
