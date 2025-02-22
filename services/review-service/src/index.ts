@@ -1,15 +1,12 @@
 import express, { Express } from "express";
 import dotenv from "dotenv";
-import userRouter from './routes'
-import cookieParser from "cookie-parser";
+import reviewRouter from './routes'
 import connectDb from "./config";
-import { updateRating } from "./queue/updateRating";
 
 dotenv.config({
-  path: `./.env.${process.env.NODE_ENV}`
+  path: `./.env`
 });
 
-console.log(`Loaded .env.${process.env.NODE_ENV}`);
 
 const app: Express = express();
 
@@ -23,11 +20,7 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
 app.use(express.static("public"));
 
-app.use(cookieParser());
-
-
-
-app.use(userRouter);
+app.use(reviewRouter);
 
 app.get('/',async(req,res)=>{
   res.send('Everything is fine!')
@@ -35,10 +28,9 @@ app.get('/',async(req,res)=>{
 
 connectDb()
   .then(() => {
-    app.listen(process.env.PORT || 3003, () => {
+    app.listen(process.env.PORT || 5002, () => {
       console.log(`Server running on port ${process.env.PORT}`);
     });
-    updateRating()
   })
   .catch((err) => {
     console.log("MongoDb connection error: ", err);

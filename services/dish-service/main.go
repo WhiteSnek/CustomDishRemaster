@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"dish-service/src/config"
+	"dish-service/src/queue"
 	"dish-service/src/routes"
 	"log"
 	"os"
@@ -29,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
-
+	go queue.UpdateRating(client)
 	// Ensure the database disconnects properly
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -39,7 +40,7 @@ func main() {
 		}
 		log.Println("Disconnected from MongoDB.")
 	}()
-
+	
 	// Initialize Gin router with logging middleware
 	r := gin.Default()
 	r.Use(gin.Logger())
