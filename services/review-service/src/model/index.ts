@@ -12,7 +12,7 @@ const reviewSchema = new Schema({
     },
     entityType: {
         type: String,
-        enum: ["restaurant","delivery-agent","dish"],
+        enum: ["restaurant","delivery_agent","dish"],
         required: true,
     },
     comment: {

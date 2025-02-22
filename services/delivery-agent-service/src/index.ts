@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import userRouter from './routes'
 import cookieParser from "cookie-parser";
 import connectDb from "./config";
+import { updateRating } from "./queue/updateRating";
 
 dotenv.config({
   path: `./.env.${process.env.NODE_ENV}`
@@ -37,6 +38,7 @@ connectDb()
     app.listen(process.env.PORT || 3003, () => {
       console.log(`Server running on port ${process.env.PORT}`);
     });
+    updateRating()
   })
   .catch((err) => {
     console.log("MongoDb connection error: ", err);
