@@ -122,13 +122,19 @@ func CreateOrder(client *mongo.Client, c *gin.Context) {
 	}
 	// check for discount if coupon code exists
 	var discount float32 = 0.0
+	var couponType string;
 	if input.CouponCode != nil {
-		discount, err = queue.GetDiscountPrice(*input.CouponCode)
+		discount, couponType , err = queue.GetDiscountPrice(*input.CouponCode, customerIDStr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		totalPrice -= discount
+		if couponType == "fixed" {
+			totalPrice -= discount
+		} else {
+			discountValue := totalPrice * (discount / 100)
+			totalPrice -= discountValue
+		}
 	}
 	// generate random id for order
 	orderId := GenerateRandomOrderID()
